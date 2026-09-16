@@ -42,9 +42,7 @@ import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedT
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
 import org.apache.activemq.artemis.utils.FileUtil;
 import org.apache.qpid.jms.JmsConnectionFactory;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
@@ -66,14 +64,14 @@ public class MultiVersionReplicaTest extends ClasspathBase {
    private boolean security;
 
 
-   @BeforeAll
-   public static void beforeAll() {
+   public void downgradeEmbedWireVersion() {
       System.setProperty("org.apache.artemis.amqp.embed.wire.version", "1");
       EmbedMessageUtil.setDefaultWireVersion(EmbedMessageUtil.EMBED_WIRE_VERSION_1);
    }
 
-   @AfterAll
-   public static void afterAll() {
+   // Cleanup wire version downgrade in case it was applied
+   @AfterEach
+   public void cleanupDowngradeEmbedWireVersion() {
       System.clearProperty("org.apache.artemis.amqp.embed.wire.version");
       EmbedMessageUtil.setDefaultWireVersion(EmbedMessageUtil.EMBED_WIRE_VERSION_2);
    }
@@ -129,6 +127,12 @@ public class MultiVersionReplicaTest extends ClasspathBase {
 
    @TestTemplate
    public void testReplica() throws Throwable {
+      if (main.equals(SNAPSHOT) && !main.equals(backup)) {
+         // Downgrading wire version for retro-compatibility between snapshot and older versions
+         // as a best effort to allow compatibility during an upgrade
+         downgradeEmbedWireVersion();
+      }
+
       FileUtil.deleteDirectory(serverFolder.getAbsoluteFile());
       System.out.println("Starting live");
       // To ensure backward compatibility, core connection security must be disabled on newer live brokers so legacy backup brokers can connect.
